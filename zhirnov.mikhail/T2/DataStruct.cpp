@@ -10,10 +10,8 @@ namespace nspace
   std::istream& operator>>(std::istream& in, DelimiterIO&& dest)
   {
     std::istream::sentry sentry(in);
-    if (!sentry)
-    {
-      return in;
-    }
+    if (!sentry) return in;
+
     char c = '0';
     in >> c;
     if (in && (c != dest.exp))
@@ -26,363 +24,148 @@ namespace nspace
   std::istream& operator>>(std::istream& in, StringIO&& dest)
   {
     std::istream::sentry sentry(in);
-    if (!sentry)
-    {
-      return in;
-    }
+    if (!sentry) return in;
     return std::getline(in >> DelimiterIO{ '"' }, dest.ref, '"');
   }
 
-  std::istream& operator>>(std::istream& in, LabelIO&& dest)
+  std::istream& operator>>(std::istream& in, CharIO&& dest)
   {
     std::istream::sentry sentry(in);
-    if (!sentry)
+    if (!sentry) return in;
+
+    char quote, ch, endquote;
+    in >> quote >> ch >> endquote;
+
+    if (quote == '\'' && endquote == '\'')
     {
+      dest.ref = ch;
       return in;
     }
-    std::string data;
-    if (in >> data && data != dest.exp)
-    {
-      in.setstate(std::ios::failbit);
-    }
+
+    in.setstate(std::ios::failbit);
     return in;
   }
 
-  // Улучшенный парсер для DataStruct
-  std::istream& operator>>(std::istream& in, DataStruct& dest)
+  std::istream& operator>>(std::istream& in, DoubleIO&& dest)
   {
     std::istream::sentry sentry(in);
-    if (!sentry)
+    if (!sentry) return in;
+
+    double value;
+    if (in >> value)
     {
+      char next = in.peek();
+      if (next == 'd' || next == 'D')
+      {
+        in.ignore(1);
+      }
+      dest.ref = value;
       return in;
     }
 
-    DataStruct input;
-    std::string key;
+    in.setstate(std::ios::failbit);
+    return in;
+  }
 
-    // Читаем открывающую скобку
-    in >> DelimiterIO{ '(' } >> DelimiterIO{ ':' };
+  std::istream& operator>>(std::istream& in, UllIO&& dest)
+  {
+    std::istream::sentry sentry(in);
+    if (!sentry) return in;
 
-    // Парсим три ключа
-    for (int i = 0; i < 3; ++i)
+    char first = in.peek();
+
+    if (first == '0')
     {
-      in >> key;
+      in.get();
+      char second = in.peek();
 
-      if (key == "key1")
+      if (second == 'x' || second == 'X')
       {
-        std::string value;
-        in >> value;
-
-        // Парсим разные форматы чисел для key1
-        if (value.back() == 'd' || value.back() == 'D')
-        {
-          value.pop_back(); // Убираем 'd'
-          std::istringstream iss(value);
-          if (!(iss >> input.key1)) in.setstate(std::ios::failbit);
-        }
-        else if (value.find("ll") != std::string::npos ||
-          value.find("ull") != std::string::npos ||
-          value.find("0x") == 0 ||
-          value.find("0b") == 0 ||
-          value.find("0") == 0 && value.length() > 1)
-        {
-          // Для целых чисел преобразуем в double
-          try {
-            size_t pos;
-            input.key1 = std::stod(value, &pos);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-        else if (value.length() == 3 && value[0] == '\'' && value[2] == '\'')
-        {
-          // Символы: 'a' -> ASCII код
-          input.key1 = static_cast<double>(value[1]);
-        }
-        else
-        {
-          // Простое double число
-          std::istringstream iss(value);
-          if (!(iss >> input.key1)) in.setstate(std::ios::failbit);
-        }
-
-        in >> DelimiterIO{ ':' };
+        in.get();
+        in >> std::hex >> dest.ref;
       }
-      else if (key == "key2")
+      else if (second == 'b' || second == 'B')
       {
-        std::string value;
-        in >> value;
-
-        // Парсим разные форматы для key2 (unsigned long long)
-        if (value.find("0x") == 0 || value.find("0X") == 0)
-        {
-          // Hex формат
-          std::istringstream iss(value.substr(2));
-          iss >> std::hex;
-          if (!(iss >> input.key2)) in.setstate(std::ios::failbit);
-        }
-        else if (value.find("0b") == 0 || value.find("0B") == 0)
-        {
-          // Binary формат (упрощенно)
-          try {
-            input.key2 = std::stoull(value.substr(2), nullptr, 2);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-        else if (value.find("ll") != std::string::npos ||
-          value.find("ull") != std::string::npos)
-        {
-          // Убираем суффиксы
-          if (value.find("ull") != std::string::npos)
-            value = value.substr(0, value.length() - 3);
-          else if (value.find("ll") != std::string::npos)
-            value = value.substr(0, value.length() - 2);
-
-          try {
-            input.key2 = std::stoull(value);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-        else if (value.length() == 3 && value[0] == '\'' && value[2] == '\'')
-        {
-          // Символы
-          input.key2 = static_cast<unsigned long long>(value[1]);
-        }
-        else if (value.length() > 1 && value[0] == '0')
-        {
-          // Octal или другие системы
-          try {
-            input.key2 = std::stoull(value, nullptr, 0);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-        else
-        {
-          // Простое число
-          try {
-            input.key2 = std::stoull(value);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-
-        in >> DelimiterIO{ ':' };
-      }
-      else if (key == "key3")
-      {
-        in >> StringIO{ input.key3 } >> DelimiterIO{ ':' };
+        in.get();
+        in >> dest.ref;
       }
       else
       {
-        in.setstate(std::ios::failbit);
-        break;
+        in >> std::oct >> dest.ref;
+      }
+    }
+    else
+    {
+      in >> dest.ref;
+
+      char suffix1 = in.peek();
+      if (suffix1 == 'u' || suffix1 == 'U')
+      {
+        in.get();
+        char suffix2 = in.peek();
+        if (suffix2 == 'l' || suffix2 == 'L')
+        {
+          in.get();
+        }
+      }
+      else if (suffix1 == 'l' || suffix1 == 'L')
+      {
+        in.get();
+        char suffix2 = in.peek();
+        if (suffix2 == 'l' || suffix2 == 'L')
+        {
+          in.get();
+        }
       }
     }
 
-    // Читаем закрывающую скобку
-#include <iomanip>
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <cctype>
-#include "DataStruct.h"
-
-namespace nspace
-{
-  std::istream& operator>>(std::istream& in, DelimiterIO&& dest)
-  {
-    std::istream::sentry sentry(in);
-    if (!sentry)
-    {
-      return in;
-    }
-    char c = '0';
-    in >> c;
-    if (in && (c != dest.exp))
-    {
-      in.setstate(std::ios::failbit);
-    }
+    if (!in) in.setstate(std::ios::failbit);
     return in;
   }
 
-  std::istream& operator>>(std::istream& in, StringIO&& dest)
-  {
-    std::istream::sentry sentry(in);
-    if (!sentry)
-    {
-      return in;
-    }
-    return std::getline(in >> DelimiterIO{ '"' }, dest.ref, '"');
-  }
-
-  std::istream& operator>>(std::istream& in, LabelIO&& dest)
-  {
-    std::istream::sentry sentry(in);
-    if (!sentry)
-    {
-      return in;
-    }
-    std::string data;
-    if (in >> data && data != dest.exp)
-    {
-      in.setstate(std::ios::failbit);
-    }
-    return in;
-  }
-
-  // Улучшенный парсер для DataStruct
   std::istream& operator>>(std::istream& in, DataStruct& dest)
   {
     std::istream::sentry sentry(in);
-    if (!sentry)
-    {
-      return in;
-    }
+    if (!sentry) return in;
 
     DataStruct input;
-    std::string key;
 
-    // Читаем открывающую скобку
     in >> DelimiterIO{ '(' } >> DelimiterIO{ ':' };
 
-    // Парсим три ключа
-    for (int i = 0; i < 3; ++i)
+    int fieldsRead = 0;
+    std::string fieldName;
+
+    while (in >> fieldName && fieldName != ")")
     {
-      in >> key;
-
-      if (key == "key1")
+      if (fieldName == "key1")
       {
-        std::string value;
-        in >> value;
-
-        // Парсим разные форматы чисел для key1
-        if (value.back() == 'd' || value.back() == 'D')
-        {
-          value.pop_back(); // Убираем 'd'
-          std::istringstream iss(value);
-          if (!(iss >> input.key1)) in.setstate(std::ios::failbit);
-        }
-        else if (value.find("ll") != std::string::npos ||
-          value.find("ull") != std::string::npos ||
-          value.find("0x") == 0 ||
-          value.find("0b") == 0 ||
-          value.find("0") == 0 && value.length() > 1)
-        {
-          // Для целых чисел преобразуем в double
-          try {
-            size_t pos;
-            input.key1 = std::stod(value, &pos);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-        else if (value.length() == 3 && value[0] == '\'' && value[2] == '\'')
-        {
-          // Символы: 'a' -> ASCII код
-          input.key1 = static_cast<double>(value[1]);
-        }
-        else
-        {
-          // Простое double число
-          std::istringstream iss(value);
-          if (!(iss >> input.key1)) in.setstate(std::ios::failbit);
-        }
-
-        in >> DelimiterIO{ ':' };
+        in >> DoubleIO{ input.key1 } >> DelimiterIO{ ':' };
+        fieldsRead |= 1;
       }
-      else if (key == "key2")
+      else if (fieldName == "key2")
       {
-        std::string value;
-        in >> value;
-
-        // Парсим разные форматы для key2 (unsigned long long)
-        if (value.find("0x") == 0 || value.find("0X") == 0)
-        {
-          // Hex формат
-          std::istringstream iss(value.substr(2));
-          iss >> std::hex;
-          if (!(iss >> input.key2)) in.setstate(std::ios::failbit);
-        }
-        else if (value.find("0b") == 0 || value.find("0B") == 0)
-        {
-          // Binary формат (упрощенно)
-          try {
-            input.key2 = std::stoull(value.substr(2), nullptr, 2);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-        else if (value.find("ll") != std::string::npos ||
-          value.find("ull") != std::string::npos)
-        {
-          // Убираем суффиксы
-          if (value.find("ull") != std::string::npos)
-            value = value.substr(0, value.length() - 3);
-          else if (value.find("ll") != std::string::npos)
-            value = value.substr(0, value.length() - 2);
-
-          try {
-            input.key2 = std::stoull(value);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-        else if (value.length() == 3 && value[0] == '\'' && value[2] == '\'')
-        {
-          // Символы
-          input.key2 = static_cast<unsigned long long>(value[1]);
-        }
-        else if (value.length() > 1 && value[0] == '0')
-        {
-          // Octal или другие системы
-          try {
-            input.key2 = std::stoull(value, nullptr, 0);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-        else
-        {
-          // Простое число
-          try {
-            input.key2 = std::stoull(value);
-          }
-          catch (...) {
-            in.setstate(std::ios::failbit);
-          }
-        }
-
-        in >> DelimiterIO{ ':' };
+        in >> UllIO{ input.key2 } >> DelimiterIO{ ':' };
+        fieldsRead |= 2;
       }
-      else if (key == "key3")
+      else if (fieldName == "key3")
       {
         in >> StringIO{ input.key3 } >> DelimiterIO{ ':' };
+        fieldsRead |= 4;
       }
       else
       {
-        in.setstate(std::ios::failbit);
-        break;
+        std::string value;
+        in >> value >> DelimiterIO{ ':' };
       }
     }
 
-    // Читаем закрывающую скобку
-    in >> DelimiterIO{ ')' };
-
-    if (in)
+    if (fieldsRead == 7)
     {
       dest = input;
+    }
+    else
+    {
+      in.setstate(std::ios::failbit);
     }
 
     return in;
@@ -391,28 +174,21 @@ namespace nspace
   std::ostream& operator<<(std::ostream& out, const DataStruct& dest)
   {
     std::ostream::sentry sentry(out);
-    if (!sentry)
-    {
-      return out;
-    }
+    if (!sentry) return out;
 
     iofmtguard fmtguard(out);
+    out << std::fixed << std::setprecision(1);
 
-    out << "(:";
-    out << "key1 " << dest.key1 << "d:";
-    out << "key2 " << dest.key2 << "ull:"; // Изменено на универсальный формат
-    out << "key3 \"" << dest.key3 << "\":";
-    out << ")";
+    out << "(:key1 " << dest.key1 << "d:";
+    out << "key2 0x" << std::hex << std::uppercase << dest.key2 << ":";
+    out << "key3 \"" << dest.key3 << "\":)";
 
     return out;
   }
 
   iofmtguard::iofmtguard(std::basic_ios< char >& s) :
-    s_(s),
-    width_(s.width()),
-    fill_(s.fill()),
-    precision_(s.precision()),
-    fmt_(s.flags())
+    s_(s), width_(s.width()), fill_(s.fill()),
+    precision_(s.precision()), fmt_(s.flags())
   {
   }
 
@@ -426,14 +202,9 @@ namespace nspace
 
   bool compareDataStruct(const DataStruct& a, const DataStruct& b)
   {
-    if (a.key1 != b.key1)
-    {
-      return a.key1 < b.key1;
-    }
-    if (a.key2 != b.key2)
-    {
-      return a.key2 < b.key2;
-    }
+    if (a.key1 != b.key1) return a.key1 < b.key1;
+    if (a.key2 != b.key2) return a.key2 < b.key2;
     return a.key3.length() < b.key3.length();
   }
 }
+

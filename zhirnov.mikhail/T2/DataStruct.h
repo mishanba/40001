@@ -1,8 +1,10 @@
 #ifndef DATA_STRUCT_H
 #define DATA_STRUCT_H
 
+#include <iomanip>
 #include <iostream>
 #include <string>
+#include <complex>
 
 namespace nspace
 {
@@ -13,20 +15,12 @@ namespace nspace
     std::string key3;
   };
 
-  struct DelimiterIO
-  {
-    char exp;
-  };
-
-  struct StringIO
-  {
-    std::string& ref;
-  };
-
-  struct LabelIO
-  {
-    std::string exp;
-  };
+  struct DelimiterIO { char exp; };
+  struct DoubleIO { double& ref; };
+  struct UllIO { unsigned long long& ref; };
+  struct StringIO { std::string& ref; };
+  struct LabelIO { std::string exp; };
+  struct CharIO { char& ref; };
 
   class iofmtguard
   {
@@ -43,11 +37,14 @@ namespace nspace
 
   std::istream& operator>>(std::istream& in, DelimiterIO&& dest);
   std::istream& operator>>(std::istream& in, LabelIO&& dest);
+  std::istream& operator>>(std::istream& in, DoubleIO&& dest);
+  std::istream& operator>>(std::istream& in, UllIO&& dest);
   std::istream& operator>>(std::istream& in, StringIO&& dest);
+  std::istream& operator>>(std::istream& in, CharIO&& dest);
   std::istream& operator>>(std::istream& in, DataStruct& dest);
   std::ostream& operator<<(std::ostream& out, const DataStruct& dest);
 
   bool compareDataStruct(const DataStruct& a, const DataStruct& b);
-
 }
 #endif
+
