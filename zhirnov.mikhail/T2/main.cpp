@@ -1,37 +1,48 @@
 #include <iostream>
 #include <algorithm>
-#include <iomanip>
 #include <iterator>
-#include <sstream>
-#include <string>
 #include <vector>
 #include <limits>
-
 #include "DataStruct.h"
 
 int main()
 {
   using nspace::DataStruct;
-  using nspace::compareDataStruct;
 
-  std::vector< DataStruct >  data;
+  std::vector<DataStruct> data;
 
-  while (!std::cin.eof() && !std::cin.bad())
+  try
   {
-    using IstremIter = std::istream_iterator< nspace::DataStruct >;
-    std::copy(IstremIter(std::cin), IstremIter(), std::back_inserter(data));
-    if (std::cin.fail() && !std::cin.eof() && !std::cin.bad())
+    while (!std::cin.eof())
     {
-      std::cin.clear();
-      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      DataStruct temp;
+      if (std::cin >> temp)
+      {
+        data.push_back(temp);
+      }
+      else if (!std::cin.eof())
+      {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      }
     }
+
+    if (data.empty())
+    {
+      std::cout << "Looks like there is no supported record. Cannot determine input. Test skipped" << std::endl;
+      return 0;
+    }
+
+    std::sort(data.begin(), data.end(), nspace::compareDataStruct);
+
+    std::copy(data.begin(), data.end(),
+      std::ostream_iterator<DataStruct>(std::cout, "\n"));
+  }
+  catch (const std::exception& e)
+  {
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
   }
 
-  std::sort(data.begin(), data.end(), compareDataStruct);
-
-  using OstreamIter = std::ostream_iterator< nspace::DataStruct >;
-  std::copy(data.begin(), data.end(), OstreamIter(std::cout, "\n"));
-  std::cout << std::endl;
   return 0;
 }
-

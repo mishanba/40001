@@ -1,7 +1,6 @@
-#ifndef  DATA_STRUCT_H
-#define  DATA_STRUCT_H
+#ifndef DATA_STRUCT_H
+#define DATA_STRUCT_H
 
-#include <iomanip>
 #include <iostream>
 #include <string>
 
@@ -17,16 +16,6 @@ namespace nspace
   struct DelimiterIO
   {
     char exp;
-  };
-
-  struct DoubleIO
-  {
-    double& ref;
-  };
-
-  struct UllHexIO
-  {
-    unsigned long long& ref;
   };
 
   struct StringIO
@@ -54,8 +43,6 @@ namespace nspace
 
   std::istream& operator>>(std::istream& in, DelimiterIO&& dest);
   std::istream& operator>>(std::istream& in, LabelIO&& dest);
-  std::istream& operator>>(std::istream& in, DoubleIO&& dest);
-  std::istream& operator>>(std::istream& in, UllHexIO&& dest);
   std::istream& operator>>(std::istream& in, StringIO&& dest);
   std::istream& operator>>(std::istream& in, DataStruct& dest);
   std::ostream& operator<<(std::ostream& out, const DataStruct& dest);
@@ -64,4 +51,3 @@ namespace nspace
 
 }
 #endif
-
